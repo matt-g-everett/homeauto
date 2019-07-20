@@ -1,0 +1,154 @@
+# Disable the creation of username and password secrets
+existingSecret: true
+
+definitions:
+  users: |-
+    {
+      "name": "homeauto",
+      "password": "{{password}}",
+      "tags": "administrator"
+    }
+  vhosts: |-
+    {
+      "name": "/homeauto"
+    }
+  parameters: |-
+#   {
+#     "value": {
+#       "src-uri": "amqp://localhost",
+#       "src-queue": "source",
+#       "dest-uri": "amqp://localhost",
+#       "dest-queue": "destination",
+#       "add-forward-headers": false,
+#       "ack-mode": "on-confirm",
+#       "delete-after": "never"
+#     },
+#     "vhost": "/",
+#     "component": "shovel",
+#     "name": "test"
+#   }
+  permissions: |-
+    {
+      "user": "homeauto",
+      "vhost": "/homeauto",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    }
+
+## Ref: https://www.rabbitmq.com/rabbitmqctl.8.html#force_boot
+forceBoot: true
+
+## MQTT Plugin
+## Ref: http://www.rabbitmq.com/mqtt.html
+rabbitmqMQTTPlugin:
+  enabled: true
+
+  ## MQTT configuration:
+  config: |
+    mqtt.default_user = homeauto
+    mqtt.default_pass = {{password}}
+    mqtt.allow_anonymous = false
+
+## Web MQTT Plugin
+## Ref: http://www.rabbitmq.com/web-mqtt.html
+rabbitmqWebMQTTPlugin:
+  enabled: false
+
+  ## Web MQTT configuration:
+  config: |
+    # web_mqtt.ssl.port       = 12345
+    # web_mqtt.ssl.backlog    = 1024
+    # web_mqtt.ssl.certfile   = /etc/cert/cacert.pem
+    # web_mqtt.ssl.keyfile    = /etc/cert/cert.pem
+    # web_mqtt.ssl.cacertfile = /etc/cert/key.pem
+    # web_mqtt.ssl.password   = changeme
+
+## STOMP Plugin
+## Ref: http://www.rabbitmq.com/stomp.html
+rabbitmqSTOMPPlugin:
+  enabled: false
+
+  ## STOMP configuration:
+  config: |
+    # stomp.default_user = guest
+    # stomp.default_pass = guest
+
+## Web STOMP Plugin
+## Ref: http://www.rabbitmq.com/web-stomp.html
+rabbitmqWebSTOMPPlugin:
+  enabled: false
+
+  ## Web STOMP configuration:
+  config: |
+    # web_stomp.ws_frame = binary
+    # web_stomp.cowboy_opts.max_keepalive = 10
+
+## AMQPS support
+## Ref: http://www.rabbitmq.com/ssl.html
+rabbitmqAmqpsSupport:
+  enabled: false
+
+  # NodePort
+  amqpsNodePort: 5671
+
+  # SSL configuration
+  config: |
+    # listeners.ssl.default             = 5671
+    # ssl_options.cacertfile            = /etc/cert/cacert.pem
+    # ssl_options.certfile              = /etc/cert/cert.pem
+    # ssl_options.keyfile               = /etc/cert/key.pem
+    # ssl_options.verify                = verify_peer
+    # ssl_options.fail_if_no_peer_cert  = false
+
+## Number of replicas
+replicaCount: 1
+
+image:
+  tag: 3.7.16-management-alpine
+  pullPolicy: IfNotPresent
+
+## Duration in seconds the pod needs to terminate gracefully
+terminationGracePeriodSeconds: 10
+
+service:
+  type: NodePort
+
+  ## Customize nodePort number when the service type is NodePort
+  ### Ref: https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
+  ###
+  managerNodePort: 31672
+
+prometheus:
+  ## Configures Prometheus Exporter to expose and scrape stats.
+  exporter:
+    enabled: false
+
+  ## Prometheus is using Operator.  Setting to true will create Operator specific resources like ServiceMonitors and Alerts
+  operator:
+    ## Are you using Prometheus Operator? [Blog Post](https://coreos.com/blog/the-prometheus-operator.html)
+    enabled: false
+
+    ## Configures Alerts, which will be setup via Prometheus Operator / ConfigMaps.
+    alerts:
+      ## Prometheus exporter must be enabled as well
+      enabled: false
+
+      ## Selector must be configured to match Prometheus Install, defaulting to whats done by Prometheus Operator
+      ## See [CoreOS Prometheus Chart](https://github.com/coreos/prometheus-operator/tree/master/helm)
+      selector:
+        role: alert-rules
+
+    serviceMonitor:
+      ## Interval at which Prometheus scrapes RabbitMQ Exporter
+      interval: 10s
+
+      # Namespace Prometheus is installed in
+      namespace: monitoring
+
+      ## Defaults to whats used if you follow CoreOS [Prometheus Install Instructions](https://github.com/coreos/prometheus-operator/tree/master/helm#tldr)
+      ## [Prometheus Selector Label](https://github.com/coreos/prometheus-operator/blob/master/helm/prometheus/templates/prometheus.yaml#L65)
+      ## [Kube Prometheus Selector Label](https://github.com/coreos/prometheus-operator/blob/master/helm/kube-prometheus/values.yaml#L298)
+      selector:
+        prometheus: kube-prometheus
+
