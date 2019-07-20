@@ -6,6 +6,8 @@ FLUENTD_CHART_VERSION='1.10.0'
 scriptDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 namespace='default'
+shouldClean=0
+shouldDeploy=1
 
 function clean () {
     helm del --purge rabbitmq-ha
@@ -19,5 +21,22 @@ function deploy() {
     helm install stable/fluentd --name fluentd --version ${FLUENTD_CHART_VERSION} --namespace ${namespace}
 }
 
-clean
-deploy
+instructionProvided=0
+while [ $# -gt 0 ] ; do
+    case $1 in
+        --clean|-c) shouldClean=1; instructionProvided=1 ; shift 1 ;;
+        --deploy|-d) shouldDeploy=1; instructionProvided=1 ; shift 1 ;;
+        *) echo "Unknown argument: $1"; exit 1 ;;
+    esac
+done
+
+
+if [[ instructionProvided -eq 0 || shouldClean -eq 1 ]]; then
+    echo "Cleaning ..."
+    clean
+fi
+
+if [[ instructionProvided -eq 0 || shouldDeploy -eq 1 ]]; then
+    echo "Deploying ..."
+    deploy
+fi
