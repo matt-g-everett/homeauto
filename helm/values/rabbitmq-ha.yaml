@@ -1,12 +1,19 @@
-# Disable the creation of username and password secrets
-existingSecret: true
+## RabbitMQ application credentials
+## Ref: http://rabbitmq.com/access-control.html
+##
+rabbitmqUsername: admin
+rabbitmqPassword: {{password}}
+
+## RabbitMQ Management user used for health checks
+managementUsername: management
+managementPassword: {{password}}
 
 definitions:
   users: |-
     {
       "name": "homeauto",
       "password": "{{password}}",
-      "tags": "administrator"
+      "tags": ""
     }
   vhosts: |-
     {
@@ -34,7 +41,14 @@ definitions:
       "configure": ".*",
       "write": ".*",
       "read": ".*"
-    }
+    },
+    {
+      "user": "admin",
+      "vhost": "/homeauto",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    } 
 
 ## Ref: https://www.rabbitmq.com/rabbitmqctl.8.html#force_boot
 forceBoot: true
@@ -112,12 +126,12 @@ image:
 terminationGracePeriodSeconds: 10
 
 service:
-  type: NodePort
+  type: ClusterIP
 
   ## Customize nodePort number when the service type is NodePort
   ### Ref: https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
   ###
-  managerNodePort: 31672
+  #managerNodePort: 31672
 
 prometheus:
   ## Configures Prometheus Exporter to expose and scrape stats.

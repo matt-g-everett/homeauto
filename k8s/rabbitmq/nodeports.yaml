@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: rabbitmq-ha
+    chart: rabbitmq-ha-{{rabbit-chart-version}}
+    heritage: Tiller
+    release: rabbitmq-ha
+  name: rabbitmq-ha-nodeports
+spec:
+  type: NodePort
+  ports:
+  - name: http
+    nodePort: 31673
+    port: 15672
+    protocol: TCP
+    targetPort: http
+  - name: amqp
+    nodePort: 31672
+    port: 5672
+    protocol: TCP
+    targetPort: amqp
+  - name: mqtt-tcp
+    nodePort: 31883
+    port: 1883
+    protocol: TCP
+    targetPort: mqtt-tcp
+  - name: mqtt-ssl
+    nodePort: 31884
+    port: 8883
+    protocol: TCP
+    targetPort: mqtt-ssl
+  selector:
+    app: rabbitmq-ha
+    release: rabbitmq-ha
