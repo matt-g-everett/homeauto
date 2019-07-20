@@ -22,10 +22,8 @@ mkdir ${outDir}
 cp -R ${scriptDir}/../!(out|build) ${outDir}
 
 # Replace all template params
-erlang_cookie=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
 for i in ${outDir}/**/*; do
     [[ -f $i ]] && sed -i -e "s/{{password}}/${password}/g" \
-        -e "s/{{erlang_cookie}}/${erlang_cookie}/g" \
 	-e "s/{{rabbit-chart-version}}/${RABBIT_CHART_VERSION}/g" \
 	$i
 done
