@@ -1,0 +1,87 @@
+image:
+  repository: matteverett/fluentd-elasticsearch
+  tag: v2.4.0
+
+output:
+  host: elasticsearch-master.default.svc.cluster.local
+
+configMaps:
+  general.conf: |
+    # Prevent fluentd from handling records containing its own logs. Otherwise
+    # it can lead to an infinite loop, when error in sending one message generates
+    # another message which also fails to be sent and so on.
+    <match fluentd.**>
+      @type null
+    </match>
+
+    # Used for health checking
+    <source>
+      @type http
+      port 9880
+      bind 0.0.0.0
+    </source>
+
+    # Emits internal metrics to every minute, and also exposes them on port
+    # 24220. Useful for determining if an output plugin is retryring/erroring,
+    # or determining the buffer queue length.
+    <source>
+      @type monitor_agent
+      bind 0.0.0.0
+      port 24220
+      tag fluentd.monitor.metrics
+    </source>
+  system.conf: |-
+    <system>
+      root_dir /tmp/fluentd-buffers/
+    </system>
+  forward-input.conf: |
+    <source>
+      @type forward
+      port 24224
+      bind 0.0.0.0
+    </source>
+    <source>
+      @type rabbitmq
+      tag mypooltag
+      host rabbitmq-ha
+      # or hosts ["192.168.1.1", "192.168.1.2"]
+      user admin
+      pass {{password}}
+      vhost /
+      exchange amq.topic # not required. if specified, the queue will be bound to the exchange
+      queue pool
+      routing_key home.pool # if not specified, the tag is used
+      ttl 30000
+      heartbeat 10 # integer as seconds or :server (interval specified by server)
+      <parse>
+        @type json # or msgpack, ltsv, none
+      </parse>
+      <buffer> # to use in buffered mode
+      </buffer>
+    </source>
+  output.conf: |
+    <match **>
+      @id elasticsearch
+      @type elasticsearch
+      @log_level info
+      include_tag_key true
+      # Replace with the host/port to your Elasticsearch cluster.
+      host "#{ENV['OUTPUT_HOST']}"
+      port "#{ENV['OUTPUT_PORT']}"
+      scheme "#{ENV['OUTPUT_SCHEME']}"
+      ssl_version "#{ENV['OUTPUT_SSL_VERSION']}"
+      logstash_format true
+      <buffer>
+        @type file
+        path /var/log/fluentd-buffers/kubernetes.system.buffer
+        flush_mode interval
+        retry_type exponential_backoff
+        flush_thread_count 2
+        flush_interval 5s
+        retry_forever
+        retry_max_interval 30
+        chunk_limit_size "#{ENV['OUTPUT_BUFFER_CHUNK_LIMIT']}"
+        queue_limit_length "#{ENV['OUTPUT_BUFFER_QUEUE_LIMIT']}"
+        overflow_action block
+      </buffer>
+    </match>

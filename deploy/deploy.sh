@@ -14,6 +14,8 @@ shouldDeploy=1
 function clean () {
     helm del --purge rabbitmq-ha
     helm del --purge fluentd
+    helm del --purge elasticsearch
+    helm del --purge kibana
     kubectl delete --recursive -f ${scriptDir}/../k8s
 }
 
@@ -22,7 +24,7 @@ function deploy() {
 
     kubectl apply --recursive -f ${scriptDir}/../k8s
     helm install stable/rabbitmq-ha --name rabbitmq-ha --version ${RABBIT_CHART_VERSION} --namespace ${namespace} --values ${scriptDir}/../helm/values/rabbitmq-ha.yaml
-    helm install stable/fluentd --name fluentd --version ${FLUENTD_CHART_VERSION} --namespace ${namespace}
+    helm install stable/fluentd --name fluentd --version ${FLUENTD_CHART_VERSION} --namespace ${namespace} --values ${scriptDir}/../helm/values/fluentd.yaml
     helm install elastic/elasticsearch --name elasticsearch --version ${ELASTICSEARCH_CHART_VERSION} --namespace ${namespace} --values ${scriptDir}/../helm/values/elasticsearch.yaml
     helm install elastic/kibana --name kibana --version ${KIBANA_CHART_VERSION} --namespace ${namespace} --values ${scriptDir}/../helm/values/kibana.yaml
 }
