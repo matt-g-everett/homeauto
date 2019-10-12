@@ -62,6 +62,7 @@ rabbitmqMQTTPlugin:
   config: |
     mqtt.default_user = homeauto
     mqtt.default_pass = {{password}}
+    mqtt.vhost = /homeauto
     mqtt.allow_anonymous = false
 
 ## Web MQTT Plugin

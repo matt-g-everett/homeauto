@@ -45,9 +45,9 @@ configMaps:
       tag mypooltag
       host rabbitmq-ha
       # or hosts ["192.168.1.1", "192.168.1.2"]
-      user admin
+      user homeauto
       pass {{password}}
-      vhost /
+      vhost /homeauto
       exchange amq.topic # not required. if specified, the queue will be bound to the exchange
       queue pool
       routing_key home.pool # if not specified, the tag is used
