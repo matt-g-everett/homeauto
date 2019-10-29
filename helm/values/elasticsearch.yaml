@@ -11,4 +11,10 @@ esConfig: {}
 #    key = value
 
 persistence:
-  enabled: false
+  enabled: true
+
+volumeClaimTemplate:
+  storageClassName: "openebs-hostpath"
+  resources:
+    requests:
+      storage: 5Gi

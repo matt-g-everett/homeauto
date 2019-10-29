@@ -1,0 +1,10 @@
+provisioner:
+  enabled: true
+snapshotOperator:
+  enabled: false
+ndm:
+  enabled: true
+ndmOperator:
+  enabled: true
+analytics:
+  enabled: false
