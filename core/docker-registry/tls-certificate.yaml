@@ -16,7 +16,9 @@ spec:
     name: issuer
   commonName: docker-registry
   organization:
-  - standardnerd
+  - standardnerd.io
   dnsNames:
-  - "192.168.1.210"
   - docker-registry
+  - docker-registry.default
+  - docker-registry.default.svc.cluster.local
+  - "192.168.1.210"

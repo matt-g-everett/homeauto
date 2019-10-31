@@ -25,8 +25,8 @@ includePV=0
 function create_ca () {
     # Create the root CA cert for the issuer
     tempCertDir=$(mktemp -d)
-    openssl genrsa -out ${tempCertDir}/ca.key 4096
-    openssl req -x509 -new -nodes -key ${tempCertDir}/ca.key -subj '/CN=mediakind.io' -days 3650 -reqexts v3_req -extensions v3_ca -out ${tempCertDir}/ca.crt
+    openssl genrsa -out ${tempCertDir}/ca.key 2048
+    openssl req -x509 -new -nodes -key ${tempCertDir}/ca.key -subj '/CN=standardnerd.io' -days 3650 -reqexts v3_req -extensions v3_ca -out ${tempCertDir}/ca.crt
     kubectl create namespace ${namespace} 2>/dev/null || true
     kubectl create secret tls ${issuerSecretName} --cert ${tempCertDir}/ca.crt --key ${tempCertDir}/ca.key --namespace ${namespace}
     rm -rf ${tempCertDir}
