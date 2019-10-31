@@ -1,0 +1,9 @@
+persistence:
+  enabled: true
+  deleteEnabled: true
+  size: 20Gi
+  storageClass: openebs-hostpath
+service:
+  type: NodePort
+  nodePort: 31500
+tlsSecretName: docker-registry-tls

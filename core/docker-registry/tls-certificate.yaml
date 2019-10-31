@@ -1,0 +1,22 @@
+apiVersion: cert-manager.io/v1alpha2
+kind: Certificate
+metadata: 
+  name: docker-registry-cert
+  labels:
+    app.kubernetes.io/name: docker-registry-cert
+    app.kubernetes.io/instance: docker-registry-cert
+    app.kubernetes.io/version: 0.1.0
+    app.kubernetes.io/component: docker-registry
+    app.kubernetes.io/part-of: docker-registry
+    app.kubernetes.io/managed-by: deploy.sh
+spec:
+  secretName: docker-registry-tls
+  issuerRef:
+    kind: Issuer
+    name: issuer
+  commonName: docker-registry
+  organization:
+  - standardnerd
+  dnsNames:
+  - "192.168.1.210"
+  - docker-registry

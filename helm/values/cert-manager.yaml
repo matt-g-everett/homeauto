@@ -1,0 +1,6 @@
+prometheus:
+  enabled: false
+webhook:
+  enabled: false
+cainjector:
+  enabled: false
