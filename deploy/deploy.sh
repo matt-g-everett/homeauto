@@ -8,6 +8,10 @@ FLUENTD_CHART_VERSION='1.10.0'
 ELASTICSEARCH_CHART_VERSION='7.2.1-0'
 KIBANA_CHART_VERSION='7.2.1-0'
 
+declare -A PV_GROUPS
+PV_GROUPS[docker-registry]=core
+PV_GROUPS[elasticsearch-master-elasticsearch-master-0]=noncore
+
 scriptDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 namespace=default
@@ -29,6 +33,11 @@ function create_ca () {
     openssl req -x509 -new -nodes -key ${tempCertDir}/ca.key -subj '/CN=standardnerd.io' -days 3650 -reqexts v3_req -extensions v3_ca -out ${tempCertDir}/ca.crt
     kubectl create namespace ${namespace} 2>/dev/null || true
     kubectl create secret tls ${issuerSecretName} --cert ${tempCertDir}/ca.crt --key ${tempCertDir}/ca.key --namespace ${namespace}
+
+    # Move CA certificate into the central store
+    sudo cp ${tempCertDir}/ca.crt /usr/local/share/ca-certificates/issuer-tls.crt
+    sudo update-ca-certificates
+
     rm -rf ${tempCertDir}
 }
 
@@ -42,13 +51,29 @@ function clean_core () {
 
 function clean_pvc () {
     kubectl -n ${namespace} delete pvc elasticsearch-master-elasticsearch-master-0
+}
+
+function clean_core_pvc () {
     kubectl -n ${namespace} delete pvc docker-registry
 }
 
+function delete_group () {
+    pv_info=$(kubectl get pv -o go-template="{{- range .items -}}{{ printf \"%s %s %s\n\" .metadata.name .spec.claimRef.name .spec.local.path }}{{ end }}")
+    while read -r name claim path; do
+        if [[ ! -z "${name}" && "${PV_GROUPS[${claim}]}" == "$1" ]]; then
+            echo "Deleting PV ${name} for PVC ${claim} at ${path}"
+            kubectl delete pv ${name}
+            sudo rm -rf "${path}"
+        fi
+    done <<< ${pv_info}
+}
+
 function clean_pv () {
-    # Delete all openebs hostpath PVs
-    kubectl delete pv -l openebs.io/cas-type=local-hostpath
-    sudo rm -rf /var/openebs/local/pvc-*
+    delete_group noncore
+}
+
+function clean_core_pv () {
+    delete_group core
 }
 
 function clean () {
@@ -59,7 +84,7 @@ function clean () {
 
     kubectl -n ${namespace} delete --recursive -f ${scriptDir}/../k8s
     kubectl -n ${namespace} delete secret docker-registry-tls
-    kubectl -n ${namespace} delete --recursive -f ${scriptDir}/../crds
+    #kubectl -n ${namespace} delete --recursive -f ${scriptDir}/../crds
 }
 
 function deploy_core () {
@@ -119,10 +144,18 @@ else
             echo "Cleaning PVCs ..."
             clean_pvc
         fi
+        if [[ includePVC -eq 1 && includeCore -eq 1 ]]; then
+            echo "Cleaning core PVCs ..."
+            clean_core_pvc
+        fi
 
         if [[ includePV -eq 1 ]]; then
             echo "Cleaning PVs ..."
             clean_pv
+        fi
+        if [[ includePV -eq 1 && includeCore -eq 1 ]]; then
+            echo "Cleaning core PVs ..."
+            clean_core_pv
         fi
     fi
 
