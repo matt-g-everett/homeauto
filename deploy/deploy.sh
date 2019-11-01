@@ -43,10 +43,12 @@ function create_ca () {
 
 function clean_core () {
     helm del --purge docker-registry
+    kubectl -n ${namespace} delete secret docker-registry-tls
+    kubectl -n ${namespace} delete -f ${scriptDir}/../triggered/openebs/sc-retain.yaml
     helm del --purge openebs
-    kubectl -n ${namespace} delete -f ${scriptDir}/../core/cert-manager/issuer.yaml
+    kubectl -n ${namespace} delete -f ${scriptDir}/../triggered/cert-manager/issuer.yaml
     helm del --purge cert-manager
-    kubectl -n ${namespace} delete -f ${scriptDir}/../core/cert-manager/00-crds.yaml
+    kubectl -n ${namespace} delete -f ${scriptDir}/../triggered/cert-manager/00-crds.yaml
 }
 
 function clean_pvc () {
@@ -79,11 +81,11 @@ function clean_core_pv () {
 function clean () {
     helm del --purge rabbitmq-ha
     helm del --purge fluentd
+    kubectl -n ${namespace} delete job es-set-templates
     helm del --purge elasticsearch
     helm del --purge kibana
 
     kubectl -n ${namespace} delete --recursive -f ${scriptDir}/../k8s
-    kubectl -n ${namespace} delete secret docker-registry-tls
     #kubectl -n ${namespace} delete --recursive -f ${scriptDir}/../crds
 }
 
@@ -91,13 +93,14 @@ function deploy_core () {
     helm repo add jetstack https://charts.jetstack.io
     helm repo up
 
-    kubectl -n ${namespace} apply -f ${scriptDir}/../core/cert-manager/00-crds.yaml
+    kubectl -n ${namespace} apply -f ${scriptDir}/../triggered/cert-manager/00-crds.yaml
     helm install jetstack/cert-manager --wait --name cert-manager --version ${CERTMAN_CHART_VERSION} --namespace ${certmanNamespace} --values ${scriptDir}/../helm/values/cert-manager.yaml
-    kubectl -n ${namespace} apply -f ${scriptDir}/../core/cert-manager/issuer.yaml
+    kubectl -n ${namespace} apply -f ${scriptDir}/../triggered/cert-manager/issuer.yaml
 
     helm install stable/openebs --wait --name openebs --version ${OPENEBS_CHART_VERSION} --namespace ${namespace} --values ${scriptDir}/../helm/values/openebs.yaml
-    
-    kubectl -n ${namespace} apply -f ${scriptDir}/../core/docker-registry/tls-certificate.yaml
+    kubectl -n ${namespace} apply -f ${scriptDir}/../triggered/openebs/sc-retain.yaml
+
+    kubectl -n ${namespace} apply -f ${scriptDir}/../triggered/docker-registry/tls-certificate.yaml
     sleep 5
     helm install stable/docker-registry --wait --name docker-registry --version ${DOCKER_REGISTRY_VERSION} --namespace ${namespace} --values ${scriptDir}/../helm/values/docker-registry.yaml
 }
@@ -106,11 +109,19 @@ function deploy () {
     helm repo add elastic https://helm.elastic.co
     helm repo up
 
+    echo "Installing elasticsearch ..."
+    helm install elastic/elasticsearch --wait --name elasticsearch --version ${ELASTICSEARCH_CHART_VERSION} --namespace ${namespace} --values ${scriptDir}/../helm/values/elasticsearch.yaml
+    echo "Creating elasticsearch index job ..."
+    kubectl -n ${namespace} apply -f ${scriptDir}/../triggered/elasticsearch/index-job.yaml
+    echo "Waiting for elasticsearch index to be set ..."
+    kubectl wait --timeout 300s --for=condition=complete job/es-set-templates
+    echo "Deleting index job"
+    kubectl -n ${namespace} delete job es-set-templates
+
     #kubectl -n ${namespace} apply --recursive -f ${scriptDir}/../crds
     kubectl -n ${namespace} apply --recursive -f ${scriptDir}/../k8s
     helm install stable/rabbitmq-ha --name rabbitmq-ha --version ${RABBIT_CHART_VERSION} --namespace ${namespace} --values ${scriptDir}/../helm/values/rabbitmq-ha.yaml
     helm install stable/fluentd --name fluentd --version ${FLUENTD_CHART_VERSION} --namespace ${namespace} --values ${scriptDir}/../helm/values/fluentd.yaml
-    helm install elastic/elasticsearch --name elasticsearch --version ${ELASTICSEARCH_CHART_VERSION} --namespace ${namespace} --values ${scriptDir}/../helm/values/elasticsearch.yaml
     helm install elastic/kibana --name kibana --version ${KIBANA_CHART_VERSION} --namespace ${namespace} --values ${scriptDir}/../helm/values/kibana.yaml
 }
 
@@ -120,7 +131,7 @@ while [ $# -gt 0 ] ; do
         --deploy|-d) shouldDeploy=1; instructionProvided=1; shift 1 ;;
         --core) includeCore=1; shift 1 ;;
         --pvc) includePVC=1; shift 1 ;;
-        --pv) includePV=1; includePVC=1; shift ;;
+        --pv) includePV=1; includePVC=1; shift 1 ;;
         --ca) initialiseCA=1; shift 1 ;;
         --namespace|-n) namespace=$2; shift 2 ;;
         *) echo "Unknown argument: $1"; exit 1 ;;
@@ -134,7 +145,7 @@ else
     if [[ instructionProvided -eq 0 || shouldClean -eq 1 ]]; then
         echo "Cleaning ..."
         clean
-        
+
         if [[ includeCore -eq 1 ]]; then
             echo "Cleaning core ..."
             clean_core
@@ -164,7 +175,7 @@ else
             echo "Deploying core ..."
             deploy_core
         fi
-        
+
         echo "Deploying ..."
         deploy
     fi

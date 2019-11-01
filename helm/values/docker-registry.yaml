@@ -2,7 +2,7 @@ persistence:
   enabled: true
   deleteEnabled: true
   size: 20Gi
-  storageClass: openebs-hostpath
+  storageClass: openebs-hostpath-retain
 service:
   type: NodePort
   nodePort: 31500

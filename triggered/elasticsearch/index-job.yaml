@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: es-set-templates
+data:
+  set-templates.sh: |
+    #!/bin/sh
+
+    body=$(cat <<-EOF
+    {
+      "index_patterns" : ["*"],
+      "order": 0,
+      "settings": {
+        "index" : {
+          "number_of_replicas": "0"
+        }
+      }
+    }
+    EOF
+    )
+
+    echo "${body}" | curl -H "Content-Type: application/json" -XPUT http://elasticsearch-master:9200/_template/all --data @-
+    echo ""
+    echo "Created template"
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: es-set-templates
+spec:
+  parallelism: 1
+  completions: 1
+  template:
+    metadata:
+      name: es-set-templates
+    spec:
+      volumes:
+      - name: config
+        configMap:
+          name: es-set-templates
+          defaultMode: 0755
+      containers:
+      - name: curl
+        image: appropriate/curl:latest
+        volumeMounts:
+          - mountPath: /scripts
+            name: config
+        command:
+        - /bin/sh
+        - -c
+        - /scripts/set-templates.sh
+      restartPolicy: Never
