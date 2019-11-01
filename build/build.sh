@@ -6,13 +6,6 @@ scriptDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 shouldDeploy=0
 
-if [[ ! -z "$1" ]]; then
-    password=$1
-else
-    echo "Please add a password as the first parameter."
-    exit 1
-fi
-
 # Enable glob
 shopt -s extglob
 shopt -s globstar
