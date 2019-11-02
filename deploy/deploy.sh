@@ -3,6 +3,7 @@
 CERTMAN_CHART_VERSION='v0.11.0'
 OPENEBS_CHART_VERSION='1.3.1'
 DOCKER_REGISTRY_VERSION='1.8.3'
+CHARTMUSEUM_VERSION='2.4.0'
 RABBIT_CHART_VERSION={{rabbit-chart-version}}
 FLUENTD_CHART_VERSION='1.10.0'
 ELASTICSEARCH_CHART_VERSION='7.2.1-0'
@@ -42,6 +43,7 @@ function create_ca () {
 }
 
 function clean_core () {
+    helm del --purge chartmuseum
     helm del --purge docker-registry
     kubectl -n ${namespace} delete secret docker-registry-tls
     kubectl -n ${namespace} delete -f ${scriptDir}/../triggered/openebs/sc-retain.yaml
@@ -56,7 +58,8 @@ function clean_pvc () {
 }
 
 function clean_core_pvc () {
-    kubectl -n ${namespace} delete pvc docker-registry
+    kubectl -n ${namespace} delete -f ${scriptDir}/../triggered/docker-registry/pvc.yaml
+    kubectl -n ${namespace} delete -f ${scriptDir}/../triggered/chartmuseum/pvc.yaml
 }
 
 function delete_group () {
@@ -101,8 +104,12 @@ function deploy_core () {
     kubectl -n ${namespace} apply -f ${scriptDir}/../triggered/openebs/sc-retain.yaml
 
     kubectl -n ${namespace} apply -f ${scriptDir}/../triggered/docker-registry/tls-certificate.yaml
-    sleep 5
+    kubectl -n ${namespace} apply -f ${scriptDir}/../triggered/docker-registry/pvc.yaml
+    kubectl -n ${namespace} apply -f ${scriptDir}/../triggered/chartmuseum/pvc.yaml
+    sleep 20
+
     helm install stable/docker-registry --wait --name docker-registry --version ${DOCKER_REGISTRY_VERSION} --namespace ${namespace} --values ${scriptDir}/../helm/values/docker-registry.yaml
+    helm install stable/chartmuseum --wait --name chartmuseum --version ${CHARTMUSEUM_VERSION} --namespace ${namespace} --values ${scriptDir}/../helm/values/chartmuseum.yaml
 }
 
 function deploy () {

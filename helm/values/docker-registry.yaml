@@ -1,8 +1,6 @@
 persistence:
   enabled: true
-  deleteEnabled: true
-  size: 20Gi
-  storageClass: openebs-hostpath-retain
+  existingClaim: docker-registry
 service:
   type: NodePort
   nodePort: 31500
