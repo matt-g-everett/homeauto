@@ -121,7 +121,7 @@ function deploy () {
     echo "Creating elasticsearch index job ..."
     kubectl -n ${namespace} apply -f ${scriptDir}/../triggered/elasticsearch/index-job.yaml
     echo "Waiting for elasticsearch index to be set ..."
-    kubectl wait --timeout 300s --for=condition=complete job/es-set-templates
+    kubectl -n ${namespace} wait --timeout 300s --for=condition=complete job/es-set-templates
     echo "Deleting index job"
     kubectl -n ${namespace} delete job es-set-templates
 
