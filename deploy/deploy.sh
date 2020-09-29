@@ -1,22 +1,21 @@
 #!/bin/bash
 
-CERTMAN_CHART_VERSION='v0.11.0'
-OPENEBS_CHART_VERSION='1.3.1'
-DOCKER_REGISTRY_VERSION='1.8.3'
-CHARTMUSEUM_VERSION='2.4.0'
+set -e
+
+CERTMAN_CHART_VERSION='v1.0.2'
+OPENEBS_CHART_VERSION='1.12.3'
 RABBIT_CHART_VERSION={{rabbit-chart-version}}
-FLUENTD_CHART_VERSION='1.10.0'
+FLUENTD_CHART_VERSION='2.2.2'
 ELASTICSEARCH_CHART_VERSION='7.6.0'
 KIBANA_CHART_VERSION='7.6.0'
 
 declare -A PV_GROUPS
-PV_GROUPS[docker-registry]=core
 PV_GROUPS[elasticsearch-master-elasticsearch-master-0]=noncore
 
 scriptDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 namespace=default
-certmanNamespace=certman
+certmanNamespace=cert-manager
 issuerSecretName=issuer-tls
 
 instructionProvided=0
@@ -32,10 +31,11 @@ function create_ca () {
     tempCertDir=$(mktemp -d)
     openssl genrsa -out ${tempCertDir}/ca.key 2048
     openssl req -x509 -new -nodes -key ${tempCertDir}/ca.key -subj '/CN=standardnerd.io' -days 3650 -reqexts v3_req -extensions v3_ca -out ${tempCertDir}/ca.crt
-    kubectl create namespace ${namespace} 2>/dev/null || true
-    kubectl create secret tls ${issuerSecretName} --cert ${tempCertDir}/ca.crt --key ${tempCertDir}/ca.key --namespace ${namespace}
+    kubectl create namespace ${certmanNamespace} 2>/dev/null || true
+    kubectl --namespace ${certmanNamespace} delete secret ${issuerSecretName} 2>/dev/null || true
+    kubectl --namespace ${certmanNamespace} create secret tls ${issuerSecretName} --cert ${tempCertDir}/ca.crt --key ${tempCertDir}/ca.key
 
-    # Move CA certificate into the central store
+    # Copy the CA certificate into the central store
     sudo cp ${tempCertDir}/ca.crt /usr/local/share/ca-certificates/issuer-tls.crt
     sudo update-ca-certificates
 
@@ -43,23 +43,18 @@ function create_ca () {
 }
 
 function clean_core () {
-    helm del --purge chartmuseum
-    helm del --purge docker-registry
-    kubectl -n ${namespace} delete secret docker-registry-tls
-    kubectl -n ${namespace} delete -f ${scriptDir}/../triggered/openebs/sc-retain.yaml
-    helm del --purge openebs
-    kubectl -n ${namespace} delete -f ${scriptDir}/../triggered/cert-manager/issuer.yaml
-    helm del --purge cert-manager
-    kubectl -n ${namespace} delete -f ${scriptDir}/../triggered/cert-manager/00-crds.yaml
+    kubectl -n ${namespace} delete -f ${scriptDir}/../triggered/openebs/sc-retain.yaml || true
+    helm del openebs -n ${namespace} || true
+    kubectl delete -f ${scriptDir}/../triggered/cert-manager/issuer.yaml || true
+    helm del cert-manager -n ${certmanNamespace} || true
 }
 
 function clean_pvc () {
-    kubectl -n ${namespace} delete pvc elasticsearch-master-elasticsearch-master-0
+    kubectl -n ${namespace} delete pvc elasticsearch-master-elasticsearch-master-0 || true
 }
 
 function clean_core_pvc () {
-    kubectl -n ${namespace} delete -f ${scriptDir}/../triggered/docker-registry/pvc.yaml
-    kubectl -n ${namespace} delete -f ${scriptDir}/../triggered/chartmuseum/pvc.yaml
+    : # No core PVCs yet
 }
 
 function delete_group () {
@@ -82,54 +77,64 @@ function clean_core_pv () {
 }
 
 function clean () {
-    helm del --purge rabbitmq-ha
-    helm del --purge fluentd
-    kubectl -n ${namespace} delete job es-set-templates
-    helm del --purge elasticsearch
-    helm del --purge kibana
+    helm del rabbitmq -n ${namespace} || true
+    helm del fluentd -n ${namespace} || true
+    kubectl -n ${namespace} delete job es-set-templates || true
+    helm del elasticsearch -n ${namespace} || true
+    helm del kibana -n ${namespace} || true
 
-    kubectl -n ${namespace} delete --recursive -f ${scriptDir}/../k8s
-    #kubectl -n ${namespace} delete --recursive -f ${scriptDir}/../crds
+    kubectl -n ${namespace} delete --recursive -f ${scriptDir}/../k8s || true
 }
 
 function deploy_core () {
     helm repo add jetstack https://charts.jetstack.io
+    helm repo add openebs https://openebs.github.io/charts
     helm repo up
 
-    kubectl -n ${namespace} apply -f ${scriptDir}/../triggered/cert-manager/00-crds.yaml
-    helm install jetstack/cert-manager --wait --name cert-manager --version ${CERTMAN_CHART_VERSION} --namespace ${certmanNamespace} --values ${scriptDir}/../helm/values/cert-manager.yaml
-    kubectl -n ${namespace} apply -f ${scriptDir}/../triggered/cert-manager/issuer.yaml
+    kubectl create namespace ${certmanNamespace} || true
+    kubectl create namespace ${namespace} || true
 
-    helm install stable/openebs --wait --name openebs --version ${OPENEBS_CHART_VERSION} --namespace ${namespace} --values ${scriptDir}/../helm/values/openebs.yaml
+    # These installs can be done in parallel
+    (
+    helm install cert-manager jetstack/cert-manager --wait --version ${CERTMAN_CHART_VERSION} --namespace ${certmanNamespace} --values ${scriptDir}/../helm/values/cert-manager.yaml
+    while ! kubectl apply -f ${scriptDir}/../triggered/cert-manager/issuer.yaml 2>/dev/null; do
+        echo "Retrying issuer creation..."
+        sleep 10
+    done
+    echo "Created issuer"
+    ) &
+
+    (
+    helm install openebs openebs/openebs --wait --version ${OPENEBS_CHART_VERSION} --namespace ${namespace} --values ${scriptDir}/../helm/values/openebs.yaml
     kubectl -n ${namespace} apply -f ${scriptDir}/../triggered/openebs/sc-retain.yaml
+    ) &
 
-    kubectl -n ${namespace} apply -f ${scriptDir}/../triggered/docker-registry/tls-certificate.yaml
-    kubectl -n ${namespace} apply -f ${scriptDir}/../triggered/docker-registry/pvc.yaml
-    kubectl -n ${namespace} apply -f ${scriptDir}/../triggered/chartmuseum/pvc.yaml
-    sleep 20
-
-    helm install stable/docker-registry --wait --name docker-registry --version ${DOCKER_REGISTRY_VERSION} --namespace ${namespace} --values ${scriptDir}/../helm/values/docker-registry.yaml
-    helm install stable/chartmuseum --wait --name chartmuseum --version ${CHARTMUSEUM_VERSION} --namespace ${namespace} --values ${scriptDir}/../helm/values/chartmuseum.yaml
+    wait
 }
 
 function deploy () {
     helm repo add elastic https://helm.elastic.co
+    helm repo add bitnami https://charts.bitnami.com/bitnami
     helm repo up
 
+    kubectl -n ${namespace} apply --recursive -f ${scriptDir}/../k8s
+
+    (
     echo "Installing elasticsearch ..."
-    helm install elastic/elasticsearch --wait --name elasticsearch --version ${ELASTICSEARCH_CHART_VERSION} --namespace ${namespace} --values ${scriptDir}/../helm/values/elasticsearch.yaml
+    helm install elasticsearch elastic/elasticsearch --wait --version ${ELASTICSEARCH_CHART_VERSION} --namespace ${namespace} --values ${scriptDir}/../helm/values/elasticsearch.yaml
     echo "Creating elasticsearch index job ..."
     kubectl -n ${namespace} apply -f ${scriptDir}/../triggered/elasticsearch/index-job.yaml
     echo "Waiting for elasticsearch index to be set ..."
     kubectl -n ${namespace} wait --timeout 300s --for=condition=complete job/es-set-templates
     echo "Deleting index job"
     kubectl -n ${namespace} delete job es-set-templates
+    helm install kibana elastic/kibana --version ${KIBANA_CHART_VERSION} --namespace ${namespace} --values ${scriptDir}/../helm/values/kibana.yaml
+    ) &
 
-    #kubectl -n ${namespace} apply --recursive -f ${scriptDir}/../crds
-    kubectl -n ${namespace} apply --recursive -f ${scriptDir}/../k8s
-    helm install stable/rabbitmq-ha --name rabbitmq-ha --version ${RABBIT_CHART_VERSION} --namespace ${namespace} --values ${scriptDir}/../helm/values/rabbitmq-ha.yaml
-    helm install stable/fluentd --name fluentd --version ${FLUENTD_CHART_VERSION} --namespace ${namespace} --values ${scriptDir}/../helm/values/fluentd.yaml
-    helm install elastic/kibana --name kibana --version ${KIBANA_CHART_VERSION} --namespace ${namespace} --values ${scriptDir}/../helm/values/kibana.yaml
+    helm install rabbitmq bitnami/rabbitmq --version ${RABBIT_CHART_VERSION} --namespace ${namespace} --values ${scriptDir}/../helm/values/rabbitmq.yaml
+    helm install fluentd bitnami/fluentd --version ${FLUENTD_CHART_VERSION} --namespace ${namespace} --values ${scriptDir}/../helm/values/fluentd.yaml
+
+    wait
 }
 
 while [ $# -gt 0 ] ; do

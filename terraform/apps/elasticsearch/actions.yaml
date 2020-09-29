@@ -1,0 +1,14 @@
+actions:
+- name: chart
+  type: chart
+  chartName: elasticsearch
+  version: "7.2.1-0"
+  wait: true
+  values: elasticsearch/values/elasticsearch.yaml
+- name: set-index
+  type: kube-resource
+  file: elasticsearch/kube/index-job.yaml
+- name: wait-index
+  type: kube-wait
+  condition: condition=complete
+  resource: job/es-set-templates

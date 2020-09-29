@@ -1,0 +1,2 @@
+registration:
+  functionUrl: https://europe-west1-homeauto-277619.cloudfunctions.net/register

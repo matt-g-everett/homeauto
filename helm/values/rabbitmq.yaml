@@ -1,0 +1,83 @@
+replicaCount: 1
+## MQTT Plugin
+## Ref: http://www.rabbitmq.com/mqtt.html
+plugins: rabbitmq_management rabbitmq_peer_discovery_k8s rabbitmq_mqtt
+auth:
+  username: admin
+  password: {{password}}
+service:
+  extraPorts:
+  - name: mqtt
+    port: 1883
+    targetPort: 1883
+  - name: mqtt-ssl
+    port: 8883
+    targetPort: 8883
+extraContainerPorts:
+- name: mqtt
+  containerPort: 1883
+  protocol: TCP
+- name: mqtt-ssl
+  containerPort: 8883
+  protocol: TCP
+extraSecrets:
+  load-definition:
+    load_definition.json: |
+      {
+        "vhosts": [
+          {
+            "name": "/"
+          },
+          {
+            "name": "/homeauto"
+          }
+        ],
+        "users": [
+          {
+            "name": "admin",
+            "password": "{{password}}",
+            "tags": "management,administrator"
+          },
+          {
+            "name": "homeauto",
+            "password": "{{password}}",
+            "tags": ""
+          }
+        ],
+        "permissions": [
+          {
+            "user": "admin",
+            "vhost": "/",
+            "configure": ".*",
+            "write": ".*",
+            "read": ".*"
+          },
+          {
+            "user": "admin",
+            "vhost": "/homeauto",
+            "configure": ".*",
+            "write": ".*",
+            "read": ".*"
+          },
+          {
+            "user": "homeauto",
+            "vhost": "/homeauto",
+            "configure": ".*",
+            "write": ".*",
+            "read": ".*"
+          }
+        ]
+      }
+loadDefinition:
+  enabled: true
+  existingSecret: load-definition
+extraConfiguration: |
+  load_definitions = /app/load_definition.json
+  mqtt.default_user = homeauto
+  mqtt.default_pass = {{password}}
+  mqtt.vhost = /homeauto
+  mqtt.allow_anonymous = false
+clustering:
+  forceBoot: true
+persistence:
+  enabled: false

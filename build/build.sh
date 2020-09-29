@@ -1,10 +1,12 @@
 #!/bin/bash
 
-RABBIT_CHART_VERSION='1.29.1'
+RABBIT_CHART_VERSION='7.6.8'
+FLUENTD_TAG='1.11.2-debian-10-r35'
 
 scriptDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-shouldDeploy=0
+shouldDeploy=false
+deployArgs=''
 
 # Enable glob
 shopt -s extglob
@@ -19,25 +21,27 @@ function build () {
 
     # Replace all template params
     for i in ${outDir}/**/*; do
-        [[ -f $i ]] && sed -i -e "s/{{password}}/${password}/g" \
-        -e "s/{{rabbit-chart-version}}/${RABBIT_CHART_VERSION}/g" \
-        $i
+        [[ -f $i ]] && sed -i \
+            -e "s/{{password}}/${password}/g" \
+            -e "s/{{fluentd-tag}}/${FLUENTD_TAG}/g" \
+            -e "s/{{rabbit-chart-version}}/${RABBIT_CHART_VERSION}/g" \
+            $i
     done
 }
 
 while [ $# -gt 0 ] ; do
     case $1 in
-        --deploy|-d) shouldDeploy=1; shift 1 ;;
         --password|-p) password=$2; shift 2 ;;
+        --deploy|-d) shouldDeploy=true; shift 1 ;;
+        --) shift 1;  deployArgs=$@; break ;;
         *) echo "Unknown argument: $1"; exit 1 ;;
     esac
 done
 
-echo "Building ..."
 build
-echo "Built"
+echo "Built deployment"
 
-if [[ shouldDeploy -eq 1 ]]; then
-    echo "Calling out/deploy/deploy.sh ..."
-    ${scriptDir}/../out/deploy/deploy.sh
+if ${shouldDeploy}; then
+    echo "Calling out/deploy/deploy.sh with ${deployArgs} ..."
+    ${scriptDir}/../out/deploy/deploy.sh ${deployArgs}
 fi
