@@ -43,9 +43,9 @@ function create_ca () {
 }
 
 function clean_core () {
-    kubectl -n ${namespace} delete -f ${scriptDir}/../triggered/openebs/sc-retain.yaml || true
+    kubectl -n ${namespace} delete -f ${scriptDir}/../k8s-manual/openebs/sc-retain.yaml || true
     helm del openebs -n ${namespace} || true
-    kubectl delete -f ${scriptDir}/../triggered/cert-manager/issuer.yaml || true
+    kubectl delete -f ${scriptDir}/../k8s-manual/cert-manager/issuer.yaml || true
     helm del cert-manager -n ${certmanNamespace} || true
 }
 
@@ -83,7 +83,7 @@ function clean () {
     helm del elasticsearch -n ${namespace} || true
     helm del kibana -n ${namespace} || true
 
-    kubectl -n ${namespace} delete --recursive -f ${scriptDir}/../k8s || true
+    kubectl -n ${namespace} delete --recursive -f ${scriptDir}/../k8s-auto || true
 }
 
 function deploy_core () {
@@ -97,7 +97,7 @@ function deploy_core () {
     # These installs can be done in parallel
     (
     helm install cert-manager jetstack/cert-manager --wait --version ${CERTMAN_CHART_VERSION} --namespace ${certmanNamespace} --values ${scriptDir}/../helm/values/cert-manager.yaml
-    while ! kubectl apply -f ${scriptDir}/../triggered/cert-manager/issuer.yaml 2>/dev/null; do
+    while ! kubectl apply -f ${scriptDir}/../k8s-manual/cert-manager/issuer.yaml 2>/dev/null; do
         echo "Retrying issuer creation..."
         sleep 10
     done
@@ -106,7 +106,7 @@ function deploy_core () {
 
     (
     helm install openebs openebs/openebs --wait --version ${OPENEBS_CHART_VERSION} --namespace ${namespace} --values ${scriptDir}/../helm/values/openebs.yaml
-    kubectl -n ${namespace} apply -f ${scriptDir}/../triggered/openebs/sc-retain.yaml
+    kubectl -n ${namespace} apply -f ${scriptDir}/../k8s-manual/openebs/sc-retain.yaml
     ) &
 
     wait
@@ -117,13 +117,13 @@ function deploy () {
     helm repo add bitnami https://charts.bitnami.com/bitnami
     helm repo up
 
-    kubectl -n ${namespace} apply --recursive -f ${scriptDir}/../k8s
+    kubectl -n ${namespace} apply --recursive -f ${scriptDir}/../k8s-auto
 
     (
     echo "Installing elasticsearch ..."
     helm install elasticsearch elastic/elasticsearch --wait --version ${ELASTICSEARCH_CHART_VERSION} --namespace ${namespace} --values ${scriptDir}/../helm/values/elasticsearch.yaml
     echo "Creating elasticsearch index job ..."
-    kubectl -n ${namespace} apply -f ${scriptDir}/../triggered/elasticsearch/index-job.yaml
+    kubectl -n ${namespace} apply -f ${scriptDir}/../k8s-manual/elasticsearch/index-job.yaml
     echo "Waiting for elasticsearch index to be set ..."
     kubectl -n ${namespace} wait --timeout 300s --for=condition=complete job/es-set-templates
     echo "Deleting index job"
