@@ -1,0 +1,27 @@
+apiVersion: elasticsearch.k8s.elastic.co/v1
+kind: Elasticsearch
+metadata:
+  name: eck
+spec:
+  version: {{elastic-version}}
+  auth:
+    fileRealm:
+    - secretName: eck-es-homeauto-filerealm
+  nodeSets:
+  - name: default
+    count: 1
+    config:
+      node.master: true
+      node.data: true
+      node.ingest: true
+      node.store.allow_mmap: false
+    volumeClaimTemplates:
+    - metadata:
+        name: elasticsearch-data
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 5Gi
+        storageClassName: openebs-hostpath-retain

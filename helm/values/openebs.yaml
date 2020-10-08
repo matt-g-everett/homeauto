@@ -1,7 +1,7 @@
 provisioner:
   enabled: true
 snapshotOperator:
-  enabled: false
+  enabled: true
 ndm:
   enabled: true
 ndmOperator:

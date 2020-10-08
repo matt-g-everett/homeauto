@@ -3,7 +3,7 @@ replicaCount: 1
 ## Ref: http://www.rabbitmq.com/mqtt.html
 plugins: rabbitmq_management rabbitmq_peer_discovery_k8s rabbitmq_mqtt
 auth:
-  username: admin
+  username: {{admin-user}}
   password: {{password}}
 service:
   extraPorts:
@@ -34,7 +34,7 @@ extraSecrets:
         ],
         "users": [
           {
-            "name": "admin",
+            "name": "{{admin-user}}",
             "password": "{{password}}",
             "tags": "management,administrator"
           },
@@ -46,14 +46,14 @@ extraSecrets:
         ],
         "permissions": [
           {
-            "user": "admin",
+            "user": "{{admin-user}}",
             "vhost": "/",
             "configure": ".*",
             "write": ".*",
             "read": ".*"
           },
           {
-            "user": "admin",
+            "user": "{{admin-user}}",
             "vhost": "/homeauto",
             "configure": ".*",
             "write": ".*",

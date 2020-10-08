@@ -4,12 +4,19 @@ metadata:
   name: elasticsearch-output
 data:
   fluentd.conf: |
+    # omit other source / match
+    <label @FLUENT_LOG>
+      <match fluent.*>
+        @type stdout
+      </match>
+    </label>
+
     # Prevent fluentd from handling records containing its own logs. Otherwise
     # it can lead to an infinite loop, when error in sending one message generates
     # another message which also fails to be sent and so on.
-    <match fluentd.**>
-      @type null
-    </match>
+    #<match fluentd.**>
+    #  @type null
+    #</match>
 
     # Used for health checking
     <source>
@@ -40,7 +47,7 @@ data:
 
     <source>
       @type rabbitmq
-      tag mypooltag
+      tag homeauto.pool
       host rabbitmq
       # or hosts ["192.168.1.1", "192.168.1.2"]
       user homeauto
@@ -58,16 +65,16 @@ data:
       </buffer>
     </source>
 
-    <match **>
-      @id elasticsearch
+    <match homeauto.**>
       @type elasticsearch
-      @log_level info
       include_tag_key true
-      # Replace with the host/port to your Elasticsearch cluster.
-      host elasticsearch-master
+      host eck-es-http
       port 9200
-      scheme http
-      ssl_version TLSv1
+      scheme https
+      ssl_verify false
+      ssl_version TLSv1_2
+      user homeauto
+      password {{password}}
       logstash_format true
       <buffer>
         @type file

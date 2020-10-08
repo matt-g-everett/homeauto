@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    common.k8s.elastic.co/type: kibana
+    kibana.k8s.elastic.co/name: eck
+  name: eck-nodeports
+spec:
+  type: NodePort
+  ports:
+  - name: https
+    port: 5601
+    protocol: TCP
+    targetPort: 5601
+    nodePort: 31601
+  selector:
+    common.k8s.elastic.co/type: kibana
+    kibana.k8s.elastic.co/name: eck
+  sessionAffinity: None
