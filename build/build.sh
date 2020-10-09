@@ -16,21 +16,23 @@ shopt -s globstar
 
 function build () {
     # Copy everything into the out directory (except the out directory and the build scripts)
-    outDir=${scriptDir}/../out
+    local outDir=${scriptDir}/../out
     rm -rf ${outDir}
     mkdir ${outDir}
     cp -R ${scriptDir}/../!(out|build) ${outDir}
 
+    local base64Password=$(echo ${password} | base64)
+
     # Replace all template params
     for i in ${outDir}/**/*; do
-        [[ -f $i ]] && sed -i \
+        [[ -f ${i} ]] && sed -i \
             -e "s/{{admin-user}}/${adminUser}/g" \
             -e "s/{{password}}/${password}/g" \
-            -e "s/{{password-base64}}/$(echo ${password} | base64)/g" \
+            -e "s/{{password-base64}}/${base64Password}/g" \
             -e "s/{{fluentd-tag}}/${FLUENTD_TAG}/g" \
             -e "s/{{rabbit-chart-version}}/${RABBIT_CHART_VERSION}/g" \
             -e "s/{{elastic-version}}/${ELASTIC_VERSION}/g" \
-            $i
+            ${i}
     done
 }
 
@@ -43,6 +45,11 @@ while [ $# -gt 0 ] ; do
         *) echo "Unknown argument: $1"; exit 1 ;;
     esac
 done
+
+if [[ -z "${password}" ]]; then
+    echo "Please set the admin password"
+    exit 1
+fi
 
 build
 echo "Built deployment"
