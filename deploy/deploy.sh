@@ -7,9 +7,10 @@ OPENEBS_CHART_VERSION='2.1.0'
 RABBIT_CHART_VERSION={{rabbit-chart-version}}
 FLUENTD_CHART_VERSION='2.2.2'
 ECK_VERSION='1.2.1'
+ES_PVC_NAME=elasticsearch-data-eck-es-default-0
 
 declare -A PV_GROUPS
-PV_GROUPS[elasticsearch-data-eck-es-default-0]=noncore
+PV_GROUPS[${ES_PVC_NAME}]=noncore
 
 scriptDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
@@ -107,11 +108,15 @@ function deploy () {
     # Apply the k8s resources
     kubectl -n ${namespace} apply --recursive -f ${scriptDir}/../k8s-auto
 
-    # Remove the owner reference from the elasticsearch volume so it doesn't get deleted on teardown
-    kubectl patch pvc elasticsearch-data-eck-es-default-0 --patch="$(cat ${scriptDir}/../k8s-manual/elasticsearch/owner-ref-patch.yaml)"
-
     helm install rabbitmq bitnami/rabbitmq --version ${RABBIT_CHART_VERSION} --namespace ${namespace} --values ${scriptDir}/../helm/values/rabbitmq.yaml
     helm install fluentd bitnami/fluentd --version ${FLUENTD_CHART_VERSION} --namespace ${namespace} --values ${scriptDir}/../helm/values/fluentd.yaml
+    
+    # Remove the owner reference from the elasticsearch volume so it doesn't get deleted on teardown
+    while ! kubectl get pvc ${ES_PVC_NAME}; do
+        echo "Waiting for PVC ${ES_PVC_NAME} to exist..."
+        sleep 5
+    done
+    kubectl patch pvc ${ES_PVC_NAME} --patch="$(cat ${scriptDir}/../k8s-manual/elasticsearch/owner-ref-patch.yaml)"
 }
 
 function clean () {
