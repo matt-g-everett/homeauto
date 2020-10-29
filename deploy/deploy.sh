@@ -108,14 +108,14 @@ function deploy () {
     kubectl -n ${namespace} apply --recursive -f ${scriptDir}/../k8s-auto
 
     # Remove the owner reference from the elasticsearch volume so it doesn't get deleted on teardown
-    #kubectl patch pvc elasticsearch-data-eck-es-default-0 --patch="$(cat ${scriptDir}/../k8s-manual/elasticsearch/owner-ref-patch.yaml)"
+    kubectl patch pvc elasticsearch-data-eck-es-default-0 --patch="$(cat ${scriptDir}/../k8s-manual/elasticsearch/owner-ref-patch.yaml)"
 
-    #helm install rabbitmq bitnami/rabbitmq --version ${RABBIT_CHART_VERSION} --namespace ${namespace} --values ${scriptDir}/../helm/values/rabbitmq.yaml
+    helm install rabbitmq bitnami/rabbitmq --version ${RABBIT_CHART_VERSION} --namespace ${namespace} --values ${scriptDir}/../helm/values/rabbitmq.yaml
     helm install fluentd bitnami/fluentd --version ${FLUENTD_CHART_VERSION} --namespace ${namespace} --values ${scriptDir}/../helm/values/fluentd.yaml
 }
 
 function clean () {
-    #helm del rabbitmq -n ${namespace} || true
+    helm del rabbitmq -n ${namespace} || true
     helm del fluentd -n ${namespace} || true
 
     # Remove the k8s resources
