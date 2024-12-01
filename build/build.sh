@@ -7,6 +7,7 @@ FLUENTD_TAG='1.11.2-debian-10-r35'
 scriptDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 shouldDeploy=false
+shouldDeployRabbit=false
 deployArgs=''
 adminUser=admin
 
@@ -41,6 +42,7 @@ while [ $# -gt 0 ] ; do
         --user|-u) adminUser=$2; shift 2 ;;
         --password|-p) password=$2; shift 2 ;;
         --deploy|-d) shouldDeploy=true; shift 1 ;;
+        --deploy-rabbit|-r) shouldDeployRabbit=true; shift 1 ;;
         --) shift 1;  deployArgs=$@; break ;;
         *) echo "Unknown argument: $1"; exit 1 ;;
     esac
@@ -54,7 +56,10 @@ fi
 build
 echo "Built deployment"
 
-if ${shouldDeploy}; then
+if ${shouldDeployRabbit}; then
+    echo "Calling out/deploy/deploy-rabbit.sh with ${deployArgs} ..."
+    "${scriptDir}"/../out/deploy/deploy-rabbit.sh ${deployArgs}
+elif ${shouldDeploy}; then
     echo "Calling out/deploy/deploy.sh with ${deployArgs} ..."
-    ${scriptDir}/../out/deploy/deploy.sh ${deployArgs}
+    "${scriptDir}"/../out/deploy/deploy.sh ${deployArgs}
 fi
