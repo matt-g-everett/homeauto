@@ -1,11 +1,7 @@
 replicaCount: 1
 ## MQTT Plugin
 ## Ref: http://www.rabbitmq.com/mqtt.html
-plugins: rabbitmq_management rabbitmq_mqtt
-persistence:
-  enabled: false
-clustering:
-  forceBoot: true
+plugins: rabbitmq_management rabbitmq_peer_discovery_k8s rabbitmq_mqtt
 auth:
   username: {{admin-user}}
   password: {{password}}
@@ -24,9 +20,6 @@ extraContainerPorts:
 - name: mqtt-ssl
   containerPort: 8883
   protocol: TCP
-loadDefinition:
-  enabled: true
-  existingSecret: load-definition
 extraSecrets:
   load-definition:
     load_definition.json: |
@@ -75,7 +68,16 @@ extraSecrets:
           }
         ]
       }
+loadDefinition:
+  enabled: true
+  existingSecret: load-definition
 extraConfiguration: |
   load_definitions = /app/load_definition.json
+  mqtt.default_user = homeauto
+  mqtt.default_pass = {{password}}
   mqtt.vhost = /homeauto
   mqtt.allow_anonymous = false
+clustering:
+  forceBoot: true
+persistence:
+  enabled: false

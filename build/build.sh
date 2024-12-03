@@ -1,6 +1,6 @@
 #!/bin/bash
 
-RABBIT_CHART_VERSION='7.6.8'
+RABBIT_CHART_VERSION='15.1.0'
 ELASTIC_VERSION='7.9.2'
 FLUENTD_TAG='1.11.2-debian-10-r35'
 
@@ -57,9 +57,9 @@ build
 echo "Built deployment"
 
 if ${shouldDeployRabbit}; then
-    echo "Calling out/deploy/deploy-rabbit.sh with ${deployArgs} ..."
-    "${scriptDir}"/../out/deploy/deploy-rabbit.sh ${deployArgs}
+    echo "Calling out/deploy/deploy-rabbit.sh with ${deployArgs[@]} ..."
+    "${scriptDir}"/../out/deploy/deploy-rabbit.sh ${deployArgs[@]}
 elif ${shouldDeploy}; then
-    echo "Calling out/deploy/deploy.sh with ${deployArgs} ..."
-    "${scriptDir}"/../out/deploy/deploy.sh ${deployArgs}
+    echo "Calling out/deploy/deploy.sh with ${deployArgs[@]} ..."
+    "${scriptDir}"/../out/deploy/deploy.sh "${deployArgs[@]}"
 fi
