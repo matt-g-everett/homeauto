@@ -78,4 +78,7 @@ extraSecrets:
 extraConfiguration: |
   load_definitions = /app/load_definition.json
   mqtt.vhost = /homeauto
+  mqtt.exchange = amq.topic
+  mqtt.prefetch = 10
   mqtt.allow_anonymous = false
+  mqtt.listeners.tcp.default = 1883
